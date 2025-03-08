@@ -421,21 +421,23 @@ impl Trace {
 unsafe extern "system" fn event_record_handler(event_record: *mut EVENT_RECORD) {
     let unwinding_code = || {
         log::trace!("compound_event_record_handler called");
-        let Some(event_record) = event_record.as_ref() else {
-            log::error!("event_record was a null pointer");
-            return;
-        };
+        unsafe {
+            let Some(event_record) = event_record.as_ref() else {
+                log::error!("event_record was a null pointer");
+                return;
+            };
 
-        let context = event_record.UserContext as *const HandlerData;
-        Arc::increment_strong_count(context);
-        let data = Arc::from_raw(context);
+            let context = event_record.UserContext as *const HandlerData;
+            Arc::increment_strong_count(context);
+            let data = Arc::from_raw(context);
 
-        match data.handler.lock() {
-            Ok(mut handler) => handler(event_record),
-            Err(err) => {
-                log::error!("event record handler lock poisoned: {:?}", err);
-            }
-        };
+            match data.handler.lock() {
+                Ok(mut handler) => handler(event_record),
+                Err(err) => {
+                    log::error!("event record handler lock poisoned: {:?}", err);
+                }
+            };
+        }
     };
     match panic::catch_unwind(AssertUnwindSafe(unwinding_code)) {
         Ok(..) => (),
@@ -474,18 +476,20 @@ unsafe extern "system" fn event_record_handler(event_record: *mut EVENT_RECORD) 
 }
 
 unsafe extern "system" fn buffer_handler(logfile: *mut EVENT_TRACE_LOGFILEW) -> u32 {
-    let Some(logfile) = logfile.as_mut() else {
-        log::error!("logfile was null");
-        return false.into();
-    };
+    unsafe {
+        let Some(logfile) = logfile.as_mut() else {
+            log::error!("logfile was null");
+            return false.into();
+        };
 
-    log::trace!("buffer_handler called");
-    let context = logfile.Context as *const HandlerData;
-    Arc::increment_strong_count(context);
-    let context = Arc::from_raw(context);
-    if context.stop_trace.load(Ordering::Acquire) {
-        return false.into();
+        log::trace!("buffer_handler called");
+        let context = logfile.Context as *const HandlerData;
+        Arc::increment_strong_count(context);
+        let context = Arc::from_raw(context);
+        if context.stop_trace.load(Ordering::Acquire) {
+            return false.into();
+        }
+
+        u32::from(true)
     }
-
-    u32::from(true)
 }

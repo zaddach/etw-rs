@@ -50,6 +50,8 @@ const LOG_FILE_NAME_MAX_LEN: usize = 1024;
 
 bitflags::bitflags! {
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(transparent))]
     pub struct LogFileMode: u32 {
         const FILE_MODE_NONE = EVENT_TRACE_FILE_MODE_NONE;
         const FILE_MODE_SEQUENTIAL = EVENT_TRACE_FILE_MODE_SEQUENTIAL;
@@ -81,6 +83,7 @@ bitflags::bitflags! {
 
 bitflags::bitflags! {
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub struct WnodeFlag: u32 {
         const ALL_DATA = WNODE_FLAG_ALL_DATA;
         const ANSI_INSTANCENAMES = WNODE_FLAG_ANSI_INSTANCENAMES;
