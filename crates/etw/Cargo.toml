@@ -6,9 +6,9 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["serde", "unchecked_cast", "json_schema"]
+default = ["serde", "unchecked_cast", "schemars"]
 serde = ["dep:serde", "bitflags/serde"]
-json_schema = [ "dep:schemars", "serde" ]
+schemars = [ "dep:schemars", "serde" ]
 # Convert POD types through pointer cast.
 # Doesn't check alignment.
 unchecked_cast = []
@@ -27,7 +27,7 @@ lazycell = "1.3.0"
 time = { version = "0.3.21", features = ["alloc", "std", "serde"] }
 static_assertions = "1.1.0"
 encoding_rs = "0.8.34"
-schemars = {version = "=1.0.0-alpha.15", features = ["derive", "uuid1"], optional = true}
+schemars = {version = "=1.0.0-alpha.17", features = ["derive", "uuid1"], optional = true}
 
 [dependencies.windows]
 version = "0.58"
