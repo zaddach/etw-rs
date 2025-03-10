@@ -65,7 +65,7 @@ impl SchemaCache {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum StringOrIntegerMap {
     Integer(HashMap<u32, String>),
     String(HashMap<String, String>),
@@ -169,10 +169,10 @@ impl StringOrIntegerMap {
 }
          
 #[cfg_attr(feature = "serde", derive(Debug, serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct EventInfo {
     #[cfg_attr(feature = "serde", serde(serialize_with = "super::super::serde::guid::serialize", deserialize_with = "super::super::serde::guid::deserialize"))]
-    #[cfg_attr(feature = "json_schema", schemars(with = "String"))]
+    #[cfg_attr(feature = "schemars", schemars(with = "String"))]
     pub provider_guid: GUID,
     pub event_id: u16,
     pub event_version: u8,
@@ -264,7 +264,7 @@ impl EventInfo {
 
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum PropertyValue {
     Constant(usize),
     Reference(usize),
@@ -278,7 +278,7 @@ impl Default for PropertyValue {
 
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PropertyInfo {
     pub length: PropertyValue,
     pub count: PropertyValue,
@@ -342,7 +342,7 @@ impl PropertyInfo {
 
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PropertyStructInfo {
     pub fields: Vec<PropertyInfo>,
 }
@@ -447,7 +447,7 @@ impl PropertyStructInfo {
 
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum PropertyNestedInfo {
     Struct(String, PropertyStructInfo),
     Value(String, PropertyValueInfo),
@@ -464,7 +464,7 @@ impl PropertyNestedInfo {
 
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "json_schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PropertyValueInfo {
     pub in_type: InType,
     pub out_type: OutType,
