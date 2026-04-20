@@ -14,7 +14,7 @@ use crate::{
 use super::{in_type::InType, out_type::OutType};
 
 pub struct SchemaCache {
-    schemas: RwLock<HashMap<(GUID, u16), Arc<EventInfo>>>,
+    schemas: RwLock<HashMap<(GUID, u16, u8), Arc<EventInfo>>>,
 }
 
 impl SchemaCache {
@@ -25,7 +25,11 @@ impl SchemaCache {
     }
 
     pub fn get_from_event_record(&self, event_record: &EVENT_RECORD) -> Result<Arc<EventInfo>, TraceError> {
-        let key = (event_record.EventHeader.ProviderId, event_record.EventHeader.EventDescriptor.Id);
+        let key = (
+            event_record.EventHeader.ProviderId,
+            event_record.EventHeader.EventDescriptor.Id,
+            event_record.EventHeader.EventDescriptor.Version,
+        );
         if let Ok(guard) = self.schemas.read() {
             if let Some(schema) = guard.get(&key) {
                 return Ok(Arc::clone(schema));
@@ -41,7 +45,13 @@ impl SchemaCache {
                 Entry::Vacant(entry) => {
                     let trace_event_info = TraceEventInfo::from_event(event_record)?; 
                     let cached_event_info = EventInfo::parse(&trace_event_info, Some(event_record))?;
-                    log::trace!("Caching event info for {:?}:{}: {:?}", event_record.EventHeader.ProviderId, event_record.EventHeader.EventDescriptor.Id, & cached_event_info);
+                    log::trace!(
+                        "Caching event info for {:?}:{}:{}: {:?}",
+                        event_record.EventHeader.ProviderId,
+                        event_record.EventHeader.EventDescriptor.Id,
+                        event_record.EventHeader.EventDescriptor.Version,
+                        &cached_event_info
+                    );
                     Ok(Arc::clone(entry.insert(Arc::new(cached_event_info))))
                 }
             }
@@ -51,9 +61,9 @@ impl SchemaCache {
         }
     }
 
-    pub fn get(&self, provider_id: GUID, event_id: u16) -> Option<Arc<EventInfo>> {
+    pub fn get(&self, provider_id: GUID, event_id: u16, event_version: u8) -> Option<Arc<EventInfo>> {
         if let Ok(guard) = self.schemas.read() {
-            guard.get(&(provider_id, event_id)).map(|v| Arc::clone(v))
+            guard.get(&(provider_id, event_id, event_version)).map(|v| Arc::clone(v))
         }
         else {
             log::warn!("mutex was poisoned");
@@ -506,7 +516,7 @@ impl PropertyValueInfo {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, mem::size_of};
+    use std::{collections::HashMap, mem::size_of, sync::Arc};
 
     use windows::{core::GUID, Win32::System::Diagnostics::Etw::{EVENT_HEADER, EVENT_RECORD}};
 
@@ -518,7 +528,7 @@ mod tests {
     };
 
     use super::{
-        EventInfo, PropertyInfo, PropertyNestedInfo, PropertyValue, PropertyValueInfo,
+        EventInfo, PropertyInfo, PropertyNestedInfo, PropertyStructInfo, PropertyValue, PropertyValueInfo, SchemaCache,
     };
 
     fn decode_hex(hex: &str) -> Vec<u8> {
@@ -680,6 +690,41 @@ mod tests {
         else {
             panic!("Expected ParseError::UnexpectedSize");
         };
+    }
+
+    #[test]
+    fn test_schema_cache_keys_by_event_version() {
+        let provider_guid = GUID::try_from("22FB2CD6-0E7B-422B-A0C7-2FAD1FD0E716").unwrap();
+        let cache = SchemaCache::new();
+        let schema_v1 = Arc::new(EventInfo {
+            provider_guid,
+            event_id: 1,
+            event_version: 1,
+            properties: PropertyStructInfo { fields: Vec::new() },
+            maps: HashMap::new(),
+        });
+        let schema_v4 = Arc::new(EventInfo {
+            provider_guid,
+            event_id: 1,
+            event_version: 4,
+            properties: PropertyStructInfo { fields: Vec::new() },
+            maps: HashMap::new(),
+        });
+
+        cache
+            .schemas
+            .write()
+            .unwrap()
+            .insert((provider_guid, 1, 1), Arc::clone(&schema_v1));
+        cache
+            .schemas
+            .write()
+            .unwrap()
+            .insert((provider_guid, 1, 4), Arc::clone(&schema_v4));
+
+        assert!(Arc::ptr_eq(&cache.get(provider_guid, 1, 1).unwrap(), &schema_v1));
+        assert!(Arc::ptr_eq(&cache.get(provider_guid, 1, 4).unwrap(), &schema_v4));
+        assert!(cache.get(provider_guid, 1, 0).is_none());
     }
 
     #[test]
