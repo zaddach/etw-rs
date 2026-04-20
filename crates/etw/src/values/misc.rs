@@ -15,7 +15,7 @@ impl<'a> Sid<'a> {
     {
         unsafe {
             let psid = mem::transmute::<*const u8, PSID>(data.as_ptr());
-            if IsValidSid(psid).as_bool() {
+            if !IsValidSid(psid).as_bool() {
                 None
             } else {
                 let length = usize::try_from(GetLengthSid(psid)).ok()?;

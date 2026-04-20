@@ -508,15 +508,47 @@ impl PropertyValueInfo {
 mod tests {
     use std::{collections::HashMap, mem::size_of};
 
+    use windows::{core::GUID, Win32::System::Diagnostics::Etw::{EVENT_HEADER, EVENT_RECORD}};
+
     use crate::{
         error::ParseError,
         schema::{in_type::InType, out_type::OutType},
-        values::{compound::StructOrValue, in_value::InValue, value::Value},
+        tdh_wrappers::ProviderEventDescriptors,
+        values::{compound::{StringOrStruct, StructOrValue}, in_value::InValue, value::Value},
     };
 
     use super::{
-        PropertyInfo, PropertyNestedInfo, PropertyValue, PropertyValueInfo,
+        EventInfo, PropertyInfo, PropertyNestedInfo, PropertyValue, PropertyValueInfo,
     };
+
+    fn decode_hex(hex: &str) -> Vec<u8> {
+        assert_eq!(hex.len() % 2, 0, "hex input must have an even number of digits");
+        (0..hex.len())
+            .step_by(2)
+            .map(|idx| u8::from_str_radix(&hex[idx..idx + 2], 16).unwrap())
+            .collect()
+    }
+
+    fn event_record_from_hex(header_hex: &str, userdata_hex: &str) -> (EVENT_RECORD, Vec<u8>) {
+        let header = decode_hex(header_hex);
+        assert_eq!(header.len(), size_of::<EVENT_HEADER>());
+
+        let mut userdata = decode_hex(userdata_hex);
+        let mut event_record = unsafe { std::mem::zeroed::<EVENT_RECORD>() };
+
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                header.as_ptr(),
+                &mut event_record.EventHeader as *mut EVENT_HEADER as *mut u8,
+                header.len(),
+            );
+        }
+
+        event_record.UserDataLength = userdata.len().try_into().unwrap();
+        event_record.UserData = userdata.as_mut_ptr() as *mut _;
+
+        (event_record, userdata)
+    }
 
     #[test]
     fn test_decode_u8_scalar() {
@@ -648,5 +680,53 @@ mod tests {
         else {
             panic!("Expected ParseError::UnexpectedSize");
         };
+    }
+
+    #[test]
+    fn test_decode_kernel_process_v4_event_with_mandatory_label_sid() {
+        const HEADER_HEX: &str =
+            "0a01000040020000d80c000028060000ddb0b7dcb2d0dc01d62cfb227b0e2b42a0c72fad1fd0e71601000410040101001000000000000080000000000000000000000000000000000000000000000000";
+        const USERDATA_HEX: &str =
+            "281900006502000000000000e5aab7dcb2d0dc01280600001b00000000000000000000000000000001000000010000000101000000000010004000005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00530079007300740065006d00330032005c007400610073006b0068006f007300740077002e006500780065000000b32f0200af9c8bb40000000000000000";
+
+        let (event_record, _userdata) = event_record_from_hex(HEADER_HEX, USERDATA_HEX);
+        let provider_guid = GUID::try_from("22FB2CD6-0E7B-422B-A0C7-2FAD1FD0E716").unwrap();
+        assert_eq!(event_record.EventHeader.ProviderId, provider_guid);
+        assert_eq!(event_record.EventHeader.EventDescriptor.Id, 1);
+        assert_eq!(event_record.EventHeader.EventDescriptor.Version, 4);
+
+        let event_descriptors = ProviderEventDescriptors::new(&provider_guid).unwrap();
+        let event_descriptor = event_descriptors.get_id_version(1, 4).unwrap();
+        let trace_event_info = event_descriptor.manifest_information().unwrap();
+        let schema = EventInfo::parse(&trace_event_info, None).unwrap();
+        let event = schema.decode(&event_record).unwrap();
+
+        let StringOrStruct::Struct(struc) = &event.data else {
+            panic!("Expected a structured event payload");
+        };
+        assert_eq!(struc.values.len(), 16);
+
+        let StructOrValue::Value(Value {
+            value: InValue::Sid(sids),
+            ..
+        }) = &struc.values[9]
+        else {
+            panic!("Expected MandatoryLabel to decode as a SID");
+        };
+        assert_eq!(sids.len(), 1);
+        assert!(sids[0].is_valid());
+
+        let StructOrValue::Value(Value {
+            value: InValue::UnicodeString(strings),
+            ..
+        }) = &struc.values[10]
+        else {
+            panic!("Expected ImageName to decode as a Unicode string");
+        };
+        assert_eq!(strings.len(), 1);
+        assert_eq!(
+            strings[0].to_string(),
+            r"\Device\HarddiskVolume3\Windows\System32\taskhostw.exe"
+        );
     }
 }
