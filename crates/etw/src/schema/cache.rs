@@ -215,6 +215,7 @@ impl EventInfo {
                     Ok((name, map)) => {
                         maps.insert(name, map);
                     },
+                    Err(ParseError::NoMapName) => {},
                     Err(err) => {
                         log::warn!("Event provider {:?} id {} version {} - Error parsing map: {}", provider_guid, event_id, event_version, err);
                     }
