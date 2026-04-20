@@ -46,7 +46,7 @@ impl Providers {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Provider> {
+    pub fn iter(&self) -> impl Iterator<Item = Provider<'_>> {
         (0..self.data().NumberOfProviders).map(|idx| Provider {
             providers: self,
             info: unsafe {
@@ -202,7 +202,7 @@ impl ProviderEventDescriptors {
         self.data().EventDescriptorsArray.get(index)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = EventDescriptor> {
+    pub fn iter(&self) -> impl Iterator<Item = EventDescriptor<'_>> {
         (0..self.len()).map(|idx| EventDescriptor {
             events: self,
             info: unsafe {
@@ -215,7 +215,7 @@ impl ProviderEventDescriptors {
         })
     }
 
-    pub fn get_id_version(&self, event_id: u16, version: u8) -> Option<EventDescriptor> {
+    pub fn get_id_version(&self, event_id: u16, version: u8) -> Option<EventDescriptor<'_>> {
         self.iter()
             .find(|evt_desc| evt_desc.id() == event_id && evt_desc.version() == version)
     }
@@ -393,7 +393,7 @@ impl TraceEventInfo {
         self.data().EventDescriptor.Version
     }
 
-    pub fn event_descriptor(&self) -> crate::values::event::EventDescriptor {
+    pub fn event_descriptor(&self) -> crate::values::event::EventDescriptor<'_> {
         crate::values::event::EventDescriptor::from(&self.data().EventDescriptor)
     }
 
@@ -607,7 +607,7 @@ impl ProviderFieldInformation {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = ProviderFieldInfo> {
+    pub fn iter(&self) -> impl Iterator<Item = ProviderFieldInfo<'_>> {
         (0..self.len()).map(|idx| ProviderFieldInfo {
             field_info: self,
             info: self.data().FieldInfoArray.get(idx).unwrap(),

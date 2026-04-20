@@ -105,7 +105,7 @@ impl<'a> Header<'a> {
         &self.0.ProviderId
     }
 
-    pub fn event_descriptor(&self) -> EventDescriptor {
+    pub fn event_descriptor(&self) -> EventDescriptor<'_> {
         EventDescriptor(&self.0.EventDescriptor)
     }
 
@@ -284,7 +284,7 @@ pub struct Event<'a> {
 }
 
 impl<'a> Event<'a> {
-    pub fn parse(event_record: &EVENT_RECORD) -> Result<(Arc<EventInfo>, Event), TraceError> {
+    pub fn parse(event_record: &EVENT_RECORD) -> Result<(Arc<EventInfo>, Event<'_>), TraceError> {
         let event = EventRecord(event_record);
 
         if event.is_wpp_event() {
@@ -295,11 +295,11 @@ impl<'a> Event<'a> {
         }
     }
 
-    fn parse_wpp_event(_event_record: &EVENT_RECORD) -> Result<(Arc<EventInfo>, Event), TraceError> {
+    fn parse_wpp_event(_event_record: &EVENT_RECORD) -> Result<(Arc<EventInfo>, Event<'_>), TraceError> {
         todo!()
     }
 
-    fn parse_non_wpp_event(event_record: &EVENT_RECORD) -> Result<(Arc<EventInfo>, Event), TraceError> {
+    fn parse_non_wpp_event(event_record: &EVENT_RECORD) -> Result<(Arc<EventInfo>, Event<'_>), TraceError> {
         let event = EventRecord(event_record);
 
         if event.is_string_event() {
