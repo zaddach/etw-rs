@@ -784,19 +784,18 @@ mod tests {
     fn test_microsoft_windows_dns_client_event_descriptor_3019_first_attribute_name() {
         let provider_guid = GUID::try_from("1C95126E-7EEA-49A9-A3FE-A378B03DDB4D").unwrap();
         let event_descriptors = ProviderEventDescriptors::new(& provider_guid).unwrap();
+        let event_descriptor = event_descriptors.get_id_version(3019, 0).unwrap();
+        let manifest_information = event_descriptor.manifest_information().unwrap();
+        let property = manifest_information.get_raw_property(0).unwrap();
+        let name = unsafe {
+            manifest_information
+                .offset_string(property.NameOffset, false)
+                .map(String::from_utf16)
+                .transpose()
+                .unwrap()
+                .unwrap()
+        };
 
-        for event_descriptor in event_descriptors.iter() {
-            if event_descriptor.id() != 3019 || event_descriptor.version() != 0 {
-                continue;
-            }
-
-            todo!("Fix test")
-            //if let Some(EventPropertyInfo::NonStructType{name, .. }) = event_descriptor.manifest_information().property_info().next() {
-            //    assert_eq!(name, "QueryName");
-            //}
-            //else {
-            //    assert!(false);
-            //}
-        }
+        assert_eq!(name, "QueryName");
     }
 }
