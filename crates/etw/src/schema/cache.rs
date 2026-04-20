@@ -82,6 +82,15 @@ pub enum StringOrIntegerMap {
 }
 
 impl StringOrIntegerMap {
+    fn has_map_name(property: &EVENT_PROPERTY_INFO) -> bool {
+        unsafe {
+            if (property.Flags.0 & PropertyStruct.0) != 0 {
+                return false;
+            }
+            property.Anonymous1.nonStructType.MapNameOffset != 0
+        }
+    }
+
     fn parse(trace_event_info: &TraceEventInfo, property: &EVENT_PROPERTY_INFO, event_record: &EVENT_RECORD) -> Result<(String, StringOrIntegerMap), ParseError> {
         unsafe {
             if (property.Flags.0 & PropertyStruct.0) != 0 {
@@ -220,12 +229,13 @@ impl EventInfo {
                         .insert(usize::from(property.Anonymous2.countPropertyIndex));
                 }
             }
-            if let Some(event_record) = event_record {
+            if let Some(event_record) = event_record
+                && StringOrIntegerMap::has_map_name(property)
+            {
                 match StringOrIntegerMap::parse(trace_event_info, property, event_record) {
                     Ok((name, map)) => {
                         maps.insert(name, map);
                     },
-                    Err(ParseError::NoMapName) => {},
                     Err(err) => {
                         log::warn!("Event provider {:?} id {} version {} - Error parsing map: {}", provider_guid, event_id, event_version, err);
                     }
@@ -518,7 +528,7 @@ impl PropertyValueInfo {
 mod tests {
     use std::{collections::HashMap, mem::size_of, slice, sync::Arc};
 
-    use windows::{core::GUID, Win32::System::Diagnostics::Etw::{EVENT_HEADER, EVENT_RECORD}};
+    use windows::{core::GUID, Win32::System::Diagnostics::Etw::{EVENT_HEADER, EVENT_PROPERTY_INFO, EVENT_RECORD, PropertyStruct}};
 
     use crate::{
         error::ParseError,
@@ -528,7 +538,7 @@ mod tests {
     };
 
     use super::{
-        EventInfo, PropertyInfo, PropertyNestedInfo, PropertyStructInfo, PropertyValue, PropertyValueInfo, SchemaCache,
+        EventInfo, PropertyInfo, PropertyNestedInfo, PropertyStructInfo, PropertyValue, PropertyValueInfo, SchemaCache, StringOrIntegerMap,
     };
 
     fn decode_hex(hex: &str) -> Vec<u8> {
@@ -741,6 +751,19 @@ mod tests {
         else {
             panic!("Expected ParseError::UnexpectedSize");
         };
+    }
+
+    #[test]
+    fn test_string_or_integer_map_has_no_map_name_for_zero_offset() {
+        let property = unsafe { std::mem::zeroed::<EVENT_PROPERTY_INFO>() };
+        assert!(!StringOrIntegerMap::has_map_name(&property));
+    }
+
+    #[test]
+    fn test_string_or_integer_map_has_no_map_name_for_struct_property() {
+        let mut property = unsafe { std::mem::zeroed::<EVENT_PROPERTY_INFO>() };
+        property.Flags = PropertyStruct;
+        assert!(!StringOrIntegerMap::has_map_name(&property));
     }
 
     #[test]
